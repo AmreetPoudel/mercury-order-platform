@@ -1,0 +1,461 @@
+Day 1 outcome we are aiming for
+
+By the end of today, I must have:
+
+    a fixed project name
+    a clear business use case
+    a frozen architecture v1
+    a repo initialized
+    a README with 15-day checklist
+    a cost boundary and cleanup rule
+    a list of open questions reduced to near zero
+
+
+
+
+Project Name: RelayOps Processing Platform
+Final use case
+    A production-style order processing platform for receiving customer orders, processing them asynchronously, storing order state durably, generating artifacts, and exposing operational visibility for reliability and recovery.
+
+Functional flow
+    Client sends order request to public endpoint
+    Request reaches AWS ALB
+    ALB forwards to API service in EKS
+    API validates request
+    API writes initial order record to PostgreSQL
+    API publishes processing task to SQS
+    Worker service consumes SQS message
+    Worker processes order
+    Worker updates PostgreSQL order status
+    Worker stores generated artifact/report in S3
+    Notification service logs or simulates downstream notification
+    Prometheus/Grafana/Loki collect metrics and logs
+    Failures route to retry/DLQ path
+
+
+Scope freeze
+
+This is the architecture I should commit to.
+
+Final scope for this project: Infrastructure
+    AWS VPC
+    2 Availability Zones
+    Public subnets
+    Private app subnets
+    Private DB subnets
+    Internet Gateway
+    NAT Gateway
+    Route tables
+    Security Groups
+    IAM roles and policies
+    ECR repositories
+    S3 bucket
+    SQS queue
+    SQS dead-letter queue
+    RDS PostgreSQL Multi-AZ
+    ElastiCache Redis
+    EKS cluster with managed node group
+    Platform
+    AWS Load Balancer Controller
+    Metrics Server
+    Ingress
+    Secrets integration from AWS Secrets Manager
+    Prometheus
+    Grafana
+    Loki
+    Applications
+    api-service
+    worker-service
+    notification-service
+    Delivery
+    GitHub Actions CI
+    GitHub Actions CD
+    Terraform
+    Kubernetes manifests or Helm later
+
+
+Architecture v1
+
+Here is the exact architecture draft I should use.
+Public vs private
+
+Public
+    Only these should be public:
+    ALB
+    public subnets
+    Internet Gateway
+
+Private
+    Everything else stays private:
+        EKS worker nodes
+        app pods
+        RDS
+        Redis
+        SQS access from workloads
+        S3 access from workloads
+        monitoring stack
+        internal service-to-service traffic
+
+This is important. If you expose more than you need, you look careless minimum in public subnet or exposed always follow least priviledges.
+
+
+Traffic flow
+    North-south traffic
+        User → ALB → Ingress → API service
+
+    East-west traffic
+        API service → PostgreSQL
+        API service → SQS
+        API service → Redis
+
+        Worker service → SQS
+        Worker service → PostgreSQL
+        Worker service → S3
+        Worker service → Redis
+
+    Notification service → PostgreSQL or internal event path depending on your later design
+
+    Prometheus scrapes app and cluster metrics
+    Loki collects logs from cluster workloads
+
+
+Availability Zone behavior
+
+Design across 2 AZs.
+Spread across both AZs
+    public subnets
+    private app subnets
+    private DB subnets
+    EKS nodes
+    ALB targets
+    RDS Multi-AZ
+What happens if one AZ fails ??
+    ALB still serves through remaining AZ
+    EKS reschedules pods to healthy nodes in remaining AZ if capacity exists
+    API remains reachable if replicas span zones
+    worker continues if replicas span zones
+    RDS Multi-AZ fails over to standby
+    SQS remains service-managed and available
+    Redis behavior depends on setup; for now treat it as available managed service but still document it as a potential degradation point
+    monitoring may partially degrade if sized too tightly
+What can still hurt you in one-AZ failure
+    insufficient node capacity in surviving AZ
+    temporary DB failover interruption
+    pods without proper replica count
+    badly configured PDB or anti-affinity
+    single NAT Gateway design if you cut corners
+    cost-saving shortcuts that reduce HA
+
+That is the kind of thinking that makes you sound serious.
+
+
+Architecture diagram v1
+                        Internet
+                           |
+                    +---------------+
+                    |  AWS ALB      |
+                    |  (Public)     |
+                    +-------+-------+
+                            |
+                        Ingress
+                            |
+          ------------------------------------------------
+          |                                              |
++---------------------+                       +---------------------+
+| EKS Node Group AZ-A |                       | EKS Node Group AZ-B |
+| Private App Subnet  |                       | Private App Subnet  |
++----------+----------+                       +----------+----------+
+           |                                             |
+   +-------+--------+                           +--------+-------+
+   | API Service    |                           | Worker Service |
+   | Notification   |                           | API Replicas   |
+   +-------+--------+                           +--------+-------+
+           |                                             |
+           |------------------- Internal ----------------|
+                           |
+         -------------------------------------------------------
+         |                    |                    |            |
+         v                    v                    v            v
++----------------+   +----------------+   +----------------+  +------------------+
+| RDS PostgreSQL |   | SQS Main Queue |   | ElastiCache    |  | S3 Artifacts     |
+| Multi-AZ       |   | + DLQ          |   | Redis          |  | Bucket           |
+| Private DB     |   | Managed        |   | Managed        |  | Managed          |
++----------------+   +----------------+   +----------------+  +------------------+
+
+                           |
+                    +---------------+
+                    | Observability |
+                    | Prometheus    |
+                    | Grafana       |
+                    | Loki          |
+                    +---------------+
+
+                           |
+                    +---------------+
+                    | GitHub Actions|
+                    | CI/CD         |
+                    +-------+-------+
+                            |
+                         ECR / EKS
+
+Not perfect, but enough for v1.
+
+
+6) AWS services list
+
+This is the exact service list to record in README.
+
+Core AWS services
+    Amazon VPC
+    Amazon EKS
+    Amazon EC2
+    Elastic Load Balancing (ALB)
+    Amazon RDS for PostgreSQL
+    Amazon SQS
+    Amazon S3
+    Amazon ECR
+    AWS IAM
+    AWS Secrets Manager
+    Amazon ElastiCache for Redis
+    Amazon CloudWatch only for base AWS visibility if needed
+Kubernetes/platform components
+    AWS Load Balancer Controller
+    Metrics Server
+    Prometheus
+    Grafana
+    Loki
+Delivery/tooling
+    Terraform
+    GitHub Actions
+    Docker
+    kubectl
+    Helm
+
+
+Design decisions you are locking today
+
+These decisions should go into README or a docs/decisions section later.
+
+Decision 1 — EKS over ECS
+
+    Reason:
+
+    better signal for SRE/DevOps/cloud roles
+    richer operational depth
+    stronger story around orchestration, scaling, observability, failure handling
+    Decision 2 — PostgreSQL over DynamoDB
+
+    Reason:
+
+        order workflow is easier to model relationally
+        simpler to explain transactional state changes
+        stronger platform realism for enterprise workloads
+    Decision 3 — SQS for async processing
+
+    Reason:
+
+        decouples API from background work
+        supports retries and DLQ
+        easier to demonstrate resilience patterns
+    Decision 4 — Redis included but limited role
+
+    Reason:
+
+        use for idempotency keys, caching, or rate limiting
+        not core durability layer
+        demonstrates understanding without overcomplicating architecture
+    Decision 5 — GitHub Actions for CI/CD
+
+    Reason:
+
+        widely recognized
+        good enough for showing automation
+        simpler to complete within 15 days
+        Decision 6 — Multi-AZ focus, not multi-region
+
+    Reason:
+
+        achievable in 15 days
+        realistic for production-like resilience
+        avoids fake complexity
+
+
+8) What each component does
+
+You need to understand every box. If you cannot explain it, you do not own it.
+
+ALB
+
+    Public entry point. Routes HTTP/HTTPS traffic to Kubernetes ingress.
+
+EKS
+
+    Runs containerized workloads and platform services.
+
+API service
+
+    Accepts orders, validates them, writes initial state, pushes async work.
+
+Worker service
+
+    Consumes SQS messages, performs processing, updates DB, writes artifact to S3.
+
+Notification service
+
+    Simulates downstream system notification. Can begin as simple logger or webhook mock.
+
+PostgreSQL
+
+    Durable relational source of truth for orders and status transitions.
+
+SQS + DLQ
+
+    Buffers asynchronous jobs and isolates poison messages through dead-letter handling.
+
+Redis
+
+    Stores short-lived fast-access data like idempotency tokens or cached lookups.
+
+S3
+
+    Stores generated reports or artifacts.
+
+Prometheus/Grafana/Loki
+
+    Metrics, dashboards, logs, and troubleshooting.
+
+GitHub Actions
+
+    Automates build, push, deploy, and later infra workflows.
+
+
+Estimated cost and cleanup strategy
+
+Do not pretend this is free. But also do not obsess over exact numbers today.
+
+Since cloud pricing changes, use a cost-risk view, not fake precise numbers.
+
+Main cost drivers
+
+Highest likely cost:
+
+    EKS control plane
+    EC2 worker nodes
+    NAT Gateway
+    RDS PostgreSQL
+    Redis
+    load balancer
+
+Lower cost:
+
+    SQS
+    S3
+    ECR
+    Secrets Manager
+    logging/metrics depending on usage
+    Cost control strategy
+
+Write these rules in README:
+
+use a single small dev environment
+    destroy nonessential resources when not testing
+    keep worker node count minimal
+    avoid idle infrastructure when possible
+    clean old images in ECR
+    keep test traffic limited
+    monitoring stack only as heavy as needed for demonstration
+    Cleanup strategy
+
+At the end of each work session:
+
+    stop and review what can be destroyed
+    keep only what is needed for next day
+    use Terraform destroy for disposable layers if required
+    document dependencies so destroy works cleanly
+    never leave orphaned load balancers, NAT, or RDS accidentally running
+
+Your real enemy is not build complexity. It is silent cloud spend from laziness.
+
+
+What to research today
+
+You already listed the right topics. Here is what to focus on inside each one.
+
+EKS architecture basics
+
+Understand:
+
+    control plane vs worker nodes
+    managed node groups
+    pod scheduling
+    cluster networking basics
+    private vs public endpoint concepts
+    IRSA at high level
+
+You do not need deep mastery today. You need conceptual clarity.
+
+ALB ingress on EKS
+
+Understand:
+
+    ALB is external
+    ingress maps routes to services
+    AWS Load Balancer Controller creates ALB resources from ingress definitions
+    TLS termination can happen at ALB
+    RDS Multi-AZ basics
+
+Understand:
+
+    Multi-AZ is HA, not read scaling
+    standby is for failover
+    there can be brief interruption during failover
+    app should reconnect gracefully
+    SQS + DLQ pattern
+
+Understand:
+
+    producer sends message
+    consumer polls
+    messages can be retried
+    visibility timeout matters
+    poison messages go to DLQ after max receives
+    consumers must be idempotent
+    Redis common use cases
+
+Understand:
+
+    cache hot reads
+    store idempotency keys
+    short-lived rate-limiting counters
+    not primary durable truth for this project
+
+
+Questions you must answer today
+Write the answer to each in your notes.
+What is public?
+Only ALB and public subnet-facing components.
+What is private?
+Everything app, DB, cache, and processing related.
+What talks to what?
+Draw exact allowed paths:
+
+    user → ALB
+    ALB → ingress/API
+    API → Postgres
+    API → SQS
+    API → Redis
+    worker → SQS
+    worker → Postgres
+    worker → S3
+    worker → Redis
+    observability → cluster workloads
+    What fails when one AZ fails?
+
+Write it honestly:
+
+    app should degrade, not die
+    DB may pause during failover
+    some requests may fail briefly
+    workload survives only if replicas and node capacity are set correctly
+
+    That last line is important. Availability is not magic. It is configuration.

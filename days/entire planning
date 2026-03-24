@@ -1,0 +1,919 @@
+Project: Production-Style Event-Driven Microservices Platform on AWS
+
+Build an end-to-end platform with:
+
+Terraform for all infra
+VPC across 2 AZs
+EKS for application runtime
+RDS PostgreSQL Multi-AZ
+SQS for async processing
+ElastiCache Redis for caching / rate limiting / short-lived state
+S3 for object storage and backup artifacts
+AWS Secrets Manager for secrets
+GitHub Actions for CI/CD
+ALB Ingress Controller for external traffic
+Prometheus + Grafana + Loki for observability
+ExternalDNS / cert-manager optional if domain exists
+Velero or at least backup strategy for cluster state
+Failure drills: pod failure, node drain, DB failover, bad deploy rollback
+Runbook + architecture doc + incident notes
+
+This is strong because it maps directly to:
+
+SRE: reliability, monitoring, incidents, recovery
+DevOps: CI/CD, IaC, automation, deployment
+Cloud Architect: design, HA, security, tradeoffs
+The use case
+
+Do not say “sample app.” Give it a business story.
+
+Suggested use case
+
+Order Processing Platform
+
+Services:
+
+api-service: receives order requests
+worker-service: consumes SQS jobs and processes orders
+notification-service: fake email/webhook notifier
+postgres: stores order metadata and status
+redis: caching / idempotency keys / rate limiting
+s3: stores generated invoice/report files
+
+Flow:
+
+Client hits API through ALB ingress
+API validates request
+API writes order row to PostgreSQL
+API publishes job to SQS
+Worker consumes job
+Worker processes order and updates DB
+Worker writes artifact to S3
+Notification service sends simulated notification
+Metrics/logs/traces collected
+Failures go to DLQ or error table
+
+That gives you sync + async + stateful + observable architecture. That is what matters.
+
+What this project proves
+
+If you do it properly, it proves:
+
+you can design cloud architecture, not just click buttons
+you understand HA and blast radius
+you can write Terraform modules
+you can deploy workloads to Kubernetes
+you understand ingress, service discovery, config, secrets
+you can set up CI/CD
+you can think in terms of operations, not just deployment
+you can handle failures and rollback
+you can write documentation like an engineer, not a tutorial copier
+Non-negotiable rule
+
+Everything in GitHub. Everything reproducible. Everything documented.
+
+Your repo should contain:
+
+architecture diagram
+README
+infra folder
+app folder
+k8s manifests or Helm charts
+GitHub Actions workflow
+runbooks
+incident simulation notes
+screenshots
+tradeoff decisions
+
+If your repo is messy, you look messy.
+
+Project scope
+
+Keep it hard enough to impress, not so big that you quit on day 4.
+
+Must-have
+Terraform provisioned AWS infra
+EKS cluster
+one API microservice
+one worker microservice
+PostgreSQL
+SQS + DLQ
+Redis
+CI pipeline
+CD pipeline
+observability
+failure test
+documentation
+Nice-to-have
+blue/green or canary rollout
+HPA with metrics
+cert-manager + TLS
+ArgoCD
+tracing with Tempo/Jaeger
+chaos testing
+backup restore demo
+
+Do not overload yourself with shiny tools. Depth beats tool collection.
+
+Proposed architecture
+Infra layer
+VPC
+2 public subnets
+2 private app subnets
+2 private db subnets
+Internet Gateway
+NAT Gateway
+Route tables
+Security groups
+IAM roles for EKS and workloads
+S3 bucket
+SQS queue + DLQ
+RDS PostgreSQL Multi-AZ
+ElastiCache Redis
+ECR repositories
+EKS managed node group
+Platform layer
+AWS Load Balancer Controller
+Metrics Server
+Ingress
+External Secrets or Secrets Manager integration
+Prometheus
+Grafana
+Loki / Promtail
+kube-state-metrics
+alerting rules
+App layer
+api-service
+worker-service
+notification-service
+ConfigMaps
+Secrets
+Deployments
+Services
+HPA
+NetworkPolicies if possible
+PodDisruptionBudgets
+resource requests/limits
+readiness/liveness probes
+Delivery layer
+GitHub Actions
+lint/test/build
+docker build/push to ECR
+Terraform plan/apply
+deploy to EKS
+environment separation
+dev
+prod-like
+Suggested stack
+
+Pick practical tech, not identity cosplay.
+
+App
+
+Use one language for speed:
+
+Python FastAPI for API
+Python worker for SQS consumer
+
+Why:
+
+fast to build
+good AWS SDK support
+simple enough to finish in 15 days
+Infra
+Terraform
+Helm
+kubectl
+AWS CLI
+Database
+PostgreSQL
+CI/CD
+GitHub Actions
+Observability
+kube-prometheus-stack
+Loki stack
+Grafana dashboards
+Repo structure
+production-event-platform/
+├── README.md
+├── docs/
+│ ├── architecture.md
+│ ├── diagrams/
+│ ├── decisions/
+│ │ ├── 001-why-eks.md
+│ │ ├── 002-why-sqs.md
+│ │ └── 003-why-rds-over-self-managed-db.md
+│ ├── runbooks/
+│ │ ├── api-down.md
+│ │ ├── db-failover.md
+│ │ ├── worker-backlog.md
+│ │ └── rollback-deployment.md
+│ └── incidents/
+│ ├── failed-deploy-simulation.md
+│ └── sqs-backlog-simulation.md
+├── infra/
+│ ├── environments/
+│ │ ├── dev/
+│ │ └── prod/
+│ ├── modules/
+│ │ ├── vpc/
+│ │ ├── eks/
+│ │ ├── rds/
+│ │ ├── sqs/
+│ │ ├── redis/
+│ │ ├── ecr/
+│ │ ├── s3/
+│ │ └── iam/
+│ └── global/
+├── k8s/
+│ ├── base/
+│ │ ├── api/
+│ │ ├── worker/
+│ │ ├── notification/
+│ │ ├── ingress/
+│ │ └── monitoring/
+│ └── overlays/
+│ ├── dev/
+│ └── prod/
+├── apps/
+│ ├── api-service/
+│ ├── worker-service/
+│ └── notification-service/
+├── scripts/
+│ ├── bootstrap.sh
+│ ├── smoke-test.sh
+│ ├── failover-test.sh
+│ └── cleanup.sh
+└── .github/
+└── workflows/
+├── ci.yml
+├── cd-app.yml
+└── terraform.yml
+
+If your repo does not look organized, people assume your thinking is not organized either.
+
+The 15-day execution plan
+
+You asked for exact days. Here it is.
+
+Day 1 — Define scope and lock architecture
+Goal
+
+Stop changing direction. Freeze the design.
+
+Deliverables
+project name
+use case
+final architecture draft
+repo initialized
+day-by-day checklist created in README
+Research
+EKS architecture basics
+ALB ingress on EKS
+RDS Multi-AZ basics
+SQS + DLQ pattern
+Redis common use cases
+Output
+architecture diagram v1
+list of AWS services
+estimated cost and cleanup strategy
+Your job
+
+Think like an architect:
+
+what is public
+what is private
+what talks to what
+what fails when one AZ fails
+Mistake to avoid
+
+Do not start provisioning anything until your flow is clear.
+
+Day 2 — Build Terraform base modules
+Goal
+
+Create reusable modules, not spaghetti.
+
+Deliverables
+Terraform root layout
+providers
+backend config
+modules for:
+vpc
+sg
+iam
+s3
+ecr
+sqs
+Research
+Terraform module structure
+remote state backend best practices
+variable files and outputs
+tags strategy
+Output
+terraform validate passes
+terraform plan works for foundational resources
+What matters
+
+Interviewers love when you explain:
+
+why modules
+how you separated environments
+how state is stored safely
+Day 3 — Provision networking and foundational AWS resources
+Goal
+
+Bring up real network and service skeleton.
+
+Deliverables
+VPC
+public/private/db subnets
+IGW, NAT, route tables
+S3
+ECR repos
+SQS + DLQ
+IAM basics
+Research
+subnet design
+NAT cost implications
+least privilege IAM
+SQS visibility timeout and DLQ design
+Verification
+VPC resources created
+queue accessible
+ECR repos available
+Mistake to avoid
+
+Do not use default VPC. That screams beginner.
+
+Day 4 — Provision EKS cluster
+Goal
+
+Get cluster running in private subnets with proper access.
+
+Deliverables
+EKS cluster
+node group
+OIDC provider for IRSA
+kubeconfig access
+basic addons
+Research
+IRSA
+managed node groups
+cluster autoscaler basics
+security groups for nodes/control plane
+Verification
+kubectl get nodes
+kubectl get pods -A
+Talking point
+
+Be able to explain why EKS instead of ECS:
+
+stronger platform signal for SRE/DevOps jobs
+richer operational concepts
+more room to demonstrate networking, observability, autoscaling
+Day 5 — Install cluster platform components
+Goal
+
+Make cluster usable, not just existing.
+
+Deliverables
+AWS Load Balancer Controller
+Metrics Server
+IngressClass
+namespace strategy
+optionally ExternalDNS/cert-manager
+Research
+Helm deployment patterns
+ALB ingress annotations
+cert-manager basics
+internal vs internet-facing ingress
+Verification
+ingress controller healthy
+test ingress reachable
+Mistake to avoid
+
+Blindly copy Helm values from blogs. Understand them.
+
+Day 6 — Build the API service
+Goal
+
+Create actual business-facing workload.
+
+Deliverables
+FastAPI app
+health endpoint
+create order endpoint
+DB write
+SQS publish
+structured JSON logs
+Dockerfile
+Research
+FastAPI app structure
+SQLAlchemy or psycopg
+boto3 SQS publishing
+idempotency concept
+health probes
+Verification
+local docker run works
+API creates rows and publishes queue message
+Must include
+/healthz
+/readyz
+request IDs in logs
+env-based config
+Day 7 — Build the worker service
+Goal
+
+Create async processor like real backend systems use.
+
+Deliverables
+worker polls SQS
+processes job
+updates PostgreSQL
+writes output file to S3
+error handling
+retry / failure behavior
+structured logging
+Research
+SQS long polling
+visibility timeout
+at-least-once delivery
+idempotent workers
+DLQ handling
+Verification
+job flows end to end
+failed job lands where expected
+Strong interview point
+
+Explain duplicate delivery and why workers must be idempotent.
+
+Day 8 — Add database and secrets handling properly
+Goal
+
+Make state layer real and secure.
+
+Deliverables
+RDS PostgreSQL via Terraform
+Secrets Manager integration
+schema migration mechanism
+Redis instance
+app config cleanup
+Research
+RDS subnet groups
+Multi-AZ vs read replica
+Secrets Manager access from pods
+Redis use for caching or request dedupe
+Verification
+apps read secret securely
+DB schema created
+Redis reachable from cluster
+Mistake to avoid
+
+Do not hardcode credentials in GitHub Actions or manifests.
+
+Day 9 — Kubernetes manifests / Helm packaging
+Goal
+
+Deploy workloads properly.
+
+Deliverables
+Deployments
+Services
+Ingress
+ConfigMaps
+Secrets references
+resource requests/limits
+readiness/liveness probes
+HPA
+PDB
+Research
+requests vs limits
+HPA metrics
+PDB
+rolling update strategy
+imagePullPolicy
+Verification
+app reachable through ALB
+pods restart cleanly
+rollout succeeds
+Must-have
+
+Your manifests should not look like random YAML paste.
+
+Day 10 — CI pipeline
+Goal
+
+Automate build quality.
+
+Deliverables
+GitHub Actions CI:
+lint
+unit tests
+docker build
+image scan optional
+push to ECR
+Research
+GitHub Actions secrets/OIDC to AWS
+docker caching
+branch strategy
+semantic image tagging
+Verification
+push to main triggers build
+image lands in ECR
+failed lint/test blocks pipeline
+Strong interview point
+
+Explain why CI is quality gate, not decoration.
+
+Day 11 — CD pipeline + infra workflow
+Goal
+
+Automate deployment without doing manual nonsense.
+
+Deliverables
+Terraform workflow
+app deploy workflow
+environment-based deployment
+rollout status check
+rollback method documented
+Research
+GitHub OIDC with AWS
+Terraform plan/apply in pipeline
+kubectl deploy from pipeline
+Helm upgrade strategy
+rollback mechanics
+Verification
+deploy from GitHub Actions works
+image tag promoted correctly
+Mistake to avoid
+
+Do not make pipelines depend on your laptop.
+
+Day 12 — Observability stack
+Goal
+
+This is where mediocre candidates die. Most people stop at deploy.
+
+Deliverables
+Prometheus
+Grafana
+Loki
+dashboards for:
+request rate
+error rate
+latency
+queue depth
+worker throughput
+pod restarts
+CPU/memory
+alert rules
+Research
+RED metrics
+golden signals
+Kubernetes monitoring basics
+app metrics exposure
+Verification
+dashboard screenshots
+logs searchable
+alerts triggered in test
+What to monitor
+API 5xx rate
+p95 latency
+worker failures
+SQS backlog
+DB connectivity errors
+pod crashloop
+HPA scaling
+Day 13 — Resilience and failure drills
+Goal
+
+Now prove it survives pain.
+
+Deliverables
+
+Run and document:
+
+kill API pod
+kill worker pod
+bad deploy and rollback
+simulate DB failover impact
+create queue backlog
+scale test small burst
+node drain test
+Research
+kubectl rollout undo
+node drain behavior
+RDS failover expectations
+DLQ replay approach
+graceful shutdown
+Verification
+
+Record:
+
+what failed
+what recovered automatically
+what required manual action
+time to detect
+time to recover
+This is gold
+
+Interviewers remember candidates who say:
+
+“I intentionally broke my own platform and documented recovery.”
+
+That separates operators from tutorial parrots.
+
+Day 14 — Backup, recovery, and security tightening
+Goal
+
+Production thinking, not student thinking.
+
+Deliverables
+document PITR for RDS
+S3 versioning if used
+backup strategy for app artifacts
+Velero or at least cluster state backup plan
+security group review
+IAM least privilege review
+container security review
+secret rotation discussion
+Research
+RDS PITR
+EKS backup limitations
+RBAC basics
+pod security baseline concepts
+image scanning
+Output
+security section in README
+DR section in docs
+known risks section
+Brutal truth
+
+If you cannot answer “how do you recover?” then you did not build a production-grade system.
+
+Day 15 — Documentation, polish, screenshots, and interview packaging
+Goal
+
+Turn engineering effort into hiring leverage.
+
+Deliverables
+final architecture diagram
+README polished
+runbooks
+decisions docs
+screenshots
+demo script
+resume bullets
+LinkedIn/GitHub project summary
+Create these sections in README
+project goal
+architecture
+services used
+deployment flow
+observability
+resilience tests
+security choices
+cost optimization
+cleanup instructions
+lessons learned
+future improvements
+Final proof artifacts
+ALB endpoint screenshot
+Grafana dashboards
+GitHub Actions pipeline success
+Terraform plan/apply evidence
+pod health
+queue processing evidence
+failover / rollback evidence
+What to research throughout the 15 days
+
+You asked for research items too. Good. Here is the list.
+
+Cloud architecture
+multi-AZ design
+private/public subnet patterns
+ingress vs service vs load balancer
+managed DB HA patterns
+asynchronous decoupling using SQS
+caching patterns with Redis
+DR and RTO/RPO basics
+Kubernetes
+deployments
+services
+ingress
+HPA
+PDB
+probes
+resource requests/limits
+configmaps/secrets
+IRSA
+rolling updates
+cluster/node/pod failure behavior
+Terraform
+module design
+remote state
+variable design
+outputs
+environment separation
+data sources
+dependency handling
+CI/CD
+GitHub Actions OIDC
+docker build and tag strategy
+ECR authentication
+Terraform workflow safety
+deployment rollback
+Observability
+Prometheus metrics
+Grafana dashboards
+structured logging
+alert thresholds
+SLO thinking
+incident response basics
+Reliability
+graceful degradation
+retries and backoff
+DLQ patterns
+idempotency
+DB failover effects
+queue backlog handling
+Security
+IAM least privilege
+secret management
+security groups
+TLS termination
+image scanning
+RBAC basics
+Deliverables that matter to recruiters
+
+Do not just build it. Package it.
+
+1. Architecture diagram
+
+Must show:
+
+user -> ALB -> API
+API -> RDS
+API -> SQS
+worker -> SQS
+worker -> RDS
+worker -> S3
+monitoring stack
+GitHub Actions -> ECR/EKS
+subnets and AZs
+2. README
+
+This is often more important than the code for first impression.
+
+3. Runbooks
+
+Write at least:
+
+API down
+worker backlog
+DB failover impact
+failed deployment rollback
+4. Incident simulations
+
+At least two:
+
+deployment failure
+queue backlog / worker failure
+5. Resume bullets
+
+Example style:
+
+Designed and deployed a production-style event-driven platform on AWS using Terraform, EKS, RDS PostgreSQL Multi-AZ, SQS, Redis, and S3 across multi-AZ infrastructure.
+Built CI/CD pipelines with GitHub Actions for infrastructure provisioning, container image delivery to ECR, and automated Kubernetes deployments with rollback validation.
+Implemented observability using Prometheus, Grafana, and Loki, including dashboards and alerting for API latency, error rates, queue depth, worker failures, and pod health.
+Performed resilience drills including pod failures, deployment rollback, queue backlog testing, and database failover analysis, with runbooks and recovery procedures documented.
+What not to do
+
+Here is where people sabotage themselves.
+
+Do not:
+build 8 microservices
+use every tool on Earth
+spend 3 days picking the “best” language
+make frontend the focus
+manually create resources in AWS console
+keep secrets in .env committed to git
+skip monitoring
+skip failure testing
+skip documentation
+claim “production-grade” without proving recovery and observability
+
+That last one is the biggest self-deception.
+
+Cost control
+
+You are not a company. Do not act like one with unlimited budget.
+
+Keep costs sane
+use small node group
+destroy infra when not using it
+use dev-sized RDS
+avoid unnecessary NAT data transfer
+clean ECR old images
+use one environment at a time if needed
+maybe use t-class where possible if supported
+turn off Grafana/monitoring lab only when needed if separate
+
+Also document:
+
+what would change for real production scale
+what you kept smaller for budget reasons
+
+That makes you look mature, not cheap.
+
+How to present this in interviews
+
+Use this structure:
+
+1. Problem
+
+“I wanted to simulate a realistic cloud-native platform with synchronous API handling, asynchronous background processing, durable state, observability, CI/CD, and resilience.”
+
+2. Architecture
+
+Explain flow in 60 seconds.
+
+3. Why these tools
+Terraform for reproducibility
+EKS for orchestration/platform depth
+RDS for managed relational durability
+SQS for decoupling and retry behavior
+Redis for fast ephemeral state
+GitHub Actions for automated delivery
+Prometheus/Grafana/Loki for observability
+4. Operational thinking
+
+“I added health probes, HPA, DLQ, resource constraints, dashboards, and runbooks.”
+
+5. Failure handling
+
+“I tested pod failure, queue backlog, rollback, and DB failover impact.”
+
+6. Lessons
+
+Talk about tradeoffs, not only success.
+
+That makes you sound like an engineer, not a course graduate.
+
+Brutal truth about your situation
+
+You do not need more theory addiction.
+You do not need another endless comparison between ECS and EKS.
+You do not need another “project idea” tab open.
+
+You need one finished thing.
+
+Your real risk is not lack of intelligence.
+It is fragmentation:
+
+too many ideas
+too much abstraction
+not enough shipped evidence
+
+This 15-day plan works only if you stop behaving like someone “preparing to start” and start behaving like someone building under deadline.
+
+Priority order when you get stuck
+
+If time gets tight, keep this order:
+
+Terraform infra
+EKS cluster
+API + worker app
+RDS + SQS
+CI/CD
+Observability
+Failure drills
+polish
+
+Do not sacrifice core system completion for fancy extras.
+
+Your daily rule
+
+Every day must end with:
+
+one commit
+one screenshot or note
+one thing deployed/tested
+one learning written in docs
+
+No zero days. Zero days kill momentum.
+
+Final outcome after 15 days
+
+By the end, you should have:
+
+a real GitHub repo
+architecture diagram
+infra as code
+deployed services
+CI/CD
+dashboards
+failure tests
+runbooks
+interview story
