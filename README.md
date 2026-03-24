@@ -36,7 +36,7 @@ Demonstrate production-oriented platform engineering across infrastructure as co
 - Observability included as a first-class concern
 
 ## 15-Day Build Plan
-- [] Day 1 - Define scope and lock architecture
+- [√] Day 1 - Define scope and lock architecture
 - [ ] Day 2 - Terraform module structure
 - [ ] Day 3 - Networking and foundational AWS resources
 - [ ] Day 4 - EKS cluster provisioning
