@@ -1,0 +1,7 @@
+
+Decision 1 — EKS over ECS
+    Reason:
+
+    better signal for SRE/DevOps/cloud roles
+    richer operational depth
+    stronger story around orchestration, scaling, observability, failure handling

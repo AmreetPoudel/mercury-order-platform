@@ -1,0 +1,6 @@
+Decision 4 — Redis included but limited role
+    Reason:
+
+        use for idempotency keys, caching, or rate limiting
+        not core durability layer
+        demonstrates understanding without overcomplicating architecture

@@ -1,0 +1,6 @@
+Decision 2 — PostgreSQL over DynamoDB
+    Reason:
+
+        order workflow is easier to model relationally
+        simpler to explain transactional state changes
+        stronger platform realism for enterprise workloads

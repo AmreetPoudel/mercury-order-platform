@@ -1,0 +1,7 @@
+ Decision 6 — Multi-AZ focus, not multi-region
+
+    Reason:
+
+        achievable in 15 days
+        realistic for production-like resilience
+        avoids fake complexity

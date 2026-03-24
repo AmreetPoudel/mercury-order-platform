@@ -1,0 +1,6 @@
+Decision 3 — SQS for async processing
+    Reason:
+
+        decouples API from background work
+        supports retries and DLQ
+        easier to demonstrate resilience patterns
