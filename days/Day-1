@@ -13,7 +13,7 @@ By the end of today, I must have:
 
 
 
-Project Name: RelayOps Processing Platform
+Project Name: Mercury Processing Platform
 Final use case
     A production-style order processing platform for receiving customer orders, processing them asynchronously, storing order state durably, generating artifacts, and exposing operational visibility for reliability and recovery.
 
@@ -100,7 +100,7 @@ This is important. If you expose more than you need, you look careless minimum i
 
 
 Traffic flow
-    North-south traffic
+    North-south traffic 
         User → ALB → Ingress → API service
 
     East-west traffic
@@ -142,7 +142,6 @@ What can still hurt you in one-AZ failure
     insufficient node capacity in surviving AZ
     temporary DB failover interruption
     pods without proper replica count
-    badly configured PDB or anti-affinity
     single NAT Gateway design if you cut corners
     cost-saving shortcuts that reduce HA
 
@@ -203,7 +202,6 @@ Not perfect, but enough for v1.
 
 6) AWS services list
 
-This is the exact service list to record in README.
 
 Core AWS services
     Amazon VPC
@@ -232,55 +230,10 @@ Delivery/tooling
     Helm
 
 
-Design decisions you are locking today
-
-These decisions should go into README or a docs/decisions section later.
-
-Decision 1 — EKS over ECS
-
-    Reason:
-
-    better signal for SRE/DevOps/cloud roles
-    richer operational depth
-    stronger story around orchestration, scaling, observability, failure handling
-    Decision 2 — PostgreSQL over DynamoDB
-
-    Reason:
-
-        order workflow is easier to model relationally
-        simpler to explain transactional state changes
-        stronger platform realism for enterprise workloads
-    Decision 3 — SQS for async processing
-
-    Reason:
-
-        decouples API from background work
-        supports retries and DLQ
-        easier to demonstrate resilience patterns
-    Decision 4 — Redis included but limited role
-
-    Reason:
-
-        use for idempotency keys, caching, or rate limiting
-        not core durability layer
-        demonstrates understanding without overcomplicating architecture
-    Decision 5 — GitHub Actions for CI/CD
-
-    Reason:
-
-        widely recognized
-        good enough for showing automation
-        simpler to complete within 15 days
-        Decision 6 — Multi-AZ focus, not multi-region
-
-    Reason:
-
-        achievable in 15 days
-        realistic for production-like resilience
-        avoids fake complexity
 
 
-8) What each component does
+
+ What each component does
 
 You need to understand every box. If you cannot explain it, you do not own it.
 
@@ -355,31 +308,9 @@ Lower cost:
     logging/metrics depending on usage
     Cost control strategy
 
-Write these rules in README:
-
-use a single small dev environment
-    destroy nonessential resources when not testing
-    keep worker node count minimal
-    avoid idle infrastructure when possible
-    clean old images in ECR
-    keep test traffic limited
-    monitoring stack only as heavy as needed for demonstration
-    Cleanup strategy
-
-At the end of each work session:
-
-    stop and review what can be destroyed
-    keep only what is needed for next day
-    use Terraform destroy for disposable layers if required
-    document dependencies so destroy works cleanly
-    never leave orphaned load balancers, NAT, or RDS accidentally running
-
-Your real enemy is not build complexity. It is silent cloud spend from laziness.
 
 
-What to research today
-
-You already listed the right topics. Here is what to focus on inside each one.
+What to research today . (for fellow learner)
 
 EKS architecture basics
 
