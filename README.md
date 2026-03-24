@@ -64,3 +64,23 @@ This project is designed as a production-style lab, not a permanently running en
 - Redis for cache/idempotency
 - S3 for artifacts
 - Prometheus/Grafana/Loki for observability
+
+## rules 
+- use a single small dev environment
+    destroy nonessential resources when not testing
+    keep worker node count minimal
+    avoid idle infrastructure when possible
+    clean old images in ECR
+    keep test traffic limited
+    monitoring stack only as heavy as needed for demonstration
+    Cleanup strategy
+
+- At the end of each work session:
+
+    stop and review what can be destroyed
+    keep only what is needed for next day
+    use Terraform destroy for disposable layers if required
+    document dependencies so destroy works cleanly
+    never leave orphaned load balancers, NAT, or RDS accidentally running
+
+Your real enemy is not build complexity. It is silent cloud spend from laziness. (this is for my fellow learner)
