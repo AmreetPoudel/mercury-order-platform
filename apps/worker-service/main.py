@@ -1,31 +1,35 @@
 import time
 import random
 
-from common.queue import QUEUE, ORDERS_DB
+from apps.common.state import QUEUE, ORDERS_DB
 
 
 def process_job(job):
     order_id = job["order_id"]
 
-    print(f"[WORKER] Processing order: {order_id}")
+    print(f"[WORKER] picked: {order_id}")
 
-    # Simulate processing time
+    # mark processing
+    ORDERS_DB[order_id]["status"] = "processing"
+    ORDERS_DB[order_id]["updated_at"] = time.time()
+
     time.sleep(2)
 
-    # Simulate random failure
+    # simulate failure
     if random.random() < 0.2:
-        print(f"[WORKER] Failed processing: {order_id}")
         ORDERS_DB[order_id]["status"] = "failed"
+        ORDERS_DB[order_id]["updated_at"] = time.time()
+        print(f"[WORKER] failed: {order_id}")
         return
 
-    # Success path
     ORDERS_DB[order_id]["status"] = "completed"
+    ORDERS_DB[order_id]["updated_at"] = time.time()
 
-    print(f"[WORKER] Completed order: {order_id}")
+    print(f"[WORKER] completed: {order_id}")
 
 
-def worker():
-    print("[WORKER] Started")
+def worker_loop():
+    print("[WORKER] started")
 
     while True:
         if len(QUEUE) > 0:
@@ -36,4 +40,4 @@ def worker():
 
 
 if __name__ == "__main__":
-    worker()
+    worker_loop()
