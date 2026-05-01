@@ -1,0 +1,2 @@
+QUEUE = []
+ORDERS_DB = {}
