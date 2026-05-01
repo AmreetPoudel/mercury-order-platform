@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import uuid
 import time
 
-from common.queue import QUEUE, ORDERS_DB
+from apps.common.state import QUEUE, ORDERS_DB
 
 app = FastAPI()
 
@@ -26,20 +26,22 @@ def create_order(order: Order):
         "order_id": order_id,
         "item": order.item,
         "quantity": order.quantity,
-        "created_at": time.time(),
+        "created_at": time.time()
     }
 
-    # Save initial state
+    # 1. write DB (source of truth)
     ORDERS_DB[order_id] = {
         "status": "queued",
         "item": order.item,
         "quantity": order.quantity,
+        "created_at": job["created_at"],
+        "updated_at": job["created_at"]
     }
 
-    # Push to queue
+    # 2. push to queue
     QUEUE.append(job)
 
-    print(f"[API] Order queued: {job}")
+    print(f"[API] queued order: {order_id}")
 
     return {
         "order_id": order_id,
@@ -49,9 +51,12 @@ def create_order(order: Order):
 
 @app.get("/orders/{order_id}")
 def get_order(order_id: str):
-    order = ORDERS_DB.get(order_id)
+    return ORDERS_DB.get(order_id, {"error": "not found"})
 
-    if not order:
-        return {"error": "not found"}
 
-    return order
+@app.get("/debug/queue")
+def debug_queue():
+    return {
+        "queue_size": len(QUEUE),
+        "items": QUEUE
+    }
