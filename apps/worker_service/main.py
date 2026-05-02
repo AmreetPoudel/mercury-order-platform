@@ -36,7 +36,7 @@ def worker_loop():
             job = QUEUE.pop(0)
             process_job(job)
         else:
-            time.sleep(1)
+            time.sleep(3)
 
 
 if __name__ == "__main__":
