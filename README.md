@@ -1,138 +1,86 @@
-📦 Mercury Order Platform (Learning Project)
+# Mercury Order Platform
 
-A minimal event-driven distributed system built to understand:
+A production-style event-driven order processing platform built on AWS using Terraform, EKS, PostgreSQL, SQS, Redis, S3, and GitHub Actions.
 
-API → Queue → Worker architecture
-Docker container isolation
-Redis-based message passing
-Basic async job processing
+## Goal
+Demonstrate production-oriented platform engineering across infrastructure as code, Kubernetes operations, CI/CD, observability, resilience, and recovery.
 
-⚠️ This is a learning implementation.
-DB is in-memory and not production safe yet.
+## High-Level Flow
+1. Client sends order request to public API endpoint.
+2. ALB routes traffic to API service running on EKS.
+3. API validates request, stores initial order record in PostgreSQL, and publishes a job to SQS.
+4. Worker service consumes the job, processes the order, updates database state, and stores generated artifacts in S3.
+5. Monitoring and logging stacks provide visibility into application and infrastructure health.
 
-🧠 Architecture
-Client
-  ↓
-FastAPI (API Service)
-  ↓ (push job)
-Redis (Queue / Broker)
-  ↓ (consume job)
-Worker Service
-  ↓
-In-memory DB (temporary)
-⚙️ Tech Stack
-Python 3.11
-FastAPI
-Redis (message broker)
-Docker + Docker Compose
-Uvicorn
-🚀 How to Run
-1. Start everything
+## Core Technologies
+- AWS VPC
+- Amazon EKS
+- Amazon RDS PostgreSQL Multi-AZ
+- Amazon SQS + DLQ
+- Amazon ElastiCache Redis
+- Amazon S3
+- Amazon ECR
+- AWS Secrets Manager
+- Terraform
+- GitHub Actions
+- Prometheus
+- Grafana
+- Loki
 
-From project root:
+## Architecture Principles
+- Public exposure minimized to ALB only
+- Application and data services remain private
+- Multi-AZ design for resilience
+- Asynchronous processing for decoupling and fault tolerance
+- Infrastructure fully reproducible through Terraform
+- Observability included as a first-class concern
 
-docker compose up --build
+## 15-Day Build Plan
+- [√] Day 1 - Define scope and lock architecture
+- [√] Day 2 - Terraform module structure
+- [ ] Day 3 - Networking and foundational AWS resources
+- [ ] Day 4 - EKS cluster provisioning
+- [ ] Day 5 - Cluster platform components
+- [ ] Day 6 - API service
+- [ ] Day 7 - Worker service
+- [ ] Day 8 - Database, secrets, and Redis
+- [ ] Day 9 - Kubernetes deployments
+- [ ] Day 10 - CI pipeline
+- [ ] Day 11 - CD pipeline and infra workflow
+- [ ] Day 12 - Observability stack
+- [ ] Day 13 - Resilience and failure drills
+- [ ] Day 14 - Backup, recovery, and security review
+- [ ] Day 15 - Documentation and interview packaging
 
-This will start:
+## Cost and Cleanup Strategy
+This project is designed as a production-style lab, not a permanently running environment. Cost will be controlled by using small development-sized resources, limiting idle time, and destroying nonessential infrastructure after testing sessions.
 
-API service → http://localhost:8000
-Worker service → background consumer
-Redis → message broker
-🧪 API Endpoints
-Health check
-curl http://localhost:8000/healthz
+## Planned Components
+- API service
+- Worker service
+- Notification service
+- PostgreSQL as durable state store
+- SQS with DLQ for async processing
+- Redis for cache/idempotency
+- S3 for artifacts
+- Prometheus/Grafana/Loki for observability
 
-Response:
+## rules 
+- use a single small dev environment
+    destroy nonessential resources when not testing
+    keep worker node count minimal
+    avoid idle infrastructure when possible
+    clean old images in ECR
+    keep test traffic limited
+    monitoring stack only as heavy as needed for demonstration
+    Cleanup strategy
 
-{"status": "ok"}
-Create order
-curl -X POST http://localhost:8000/orders \
--H "Content-Type: application/json" \
--d '{
-  "item": "laptop",
-  "quantity": 1
-}'
+- At the end of each work session:
 
-Response:
+    stop and review what can be destroyed
+    keep only what is needed for next day
+    use Terraform destroy for disposable layers if required
+    document dependencies so destroy works cleanly
+    never leave orphaned load balancers, NAT, or RDS accidentally running
 
-{
-  "order_id": "uuid",
-  "status": "queued"
-}
-Get order status
-curl http://localhost:8000/orders/{order_id}
-
-Example:
-
-{
-  "status": "completed",
-  "item": "laptop",
-  "quantity": 1
-}
-👷 Worker Behavior
-
-The worker:
-
-Continuously listens to Redis queue
-Fetches jobs using BRPOP
-Processes order
-Updates in-memory DB
-
-Logs:
-
-[WORKER] started
-[WORKER] processing <order_id>
-[WORKER] completed <order_id>
-🔍 Debugging
-View API logs
-docker logs -f <api_container_id>
-View Worker logs
-docker logs -f <worker_container_id>
-Check running containers
-docker ps
-🧠 Key Learning Concepts
-1. Process Isolation
-
-Each container has its own memory → no shared Python state.
-
-2. Queue Decoupling
-
-API does not wait for worker → uses Redis queue.
-
-3. Event-driven flow
-
-API produces events, worker consumes them asynchronously.
-
-⚠️ Current Limitations
-
-This system is intentionally simplified:
-
-❌ No persistent database (in-memory only)
-❌ No retry mechanism
-❌ No dead-letter queue
-❌ No idempotency handling
-❌ No failure recovery
-🔥 Next Improvements (Roadmap)
-Add PostgreSQL (source of truth)
-Add retry + failure handling
-Add idempotency layer
-Add monitoring/logging (Prometheus)
-Replace in-memory DB completely
-Add Kubernetes deployment
-🧠 Why this project exists
-
-To understand:
-
-“Why distributed systems require queues, databases, and isolation”
-
-Not just to build APIs—but to understand system behavior under failure.
-
-🚀 Run Order Summary
-docker compose up --build
-
-Then:
-
-Send POST /orders
-Watch worker logs
-Fetch order status
-Observe async processing
+Your real enemy is not build complexity. It is silent cloud spend from laziness. (this is for my fellow learner)
