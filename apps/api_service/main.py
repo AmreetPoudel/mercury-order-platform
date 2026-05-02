@@ -2,8 +2,12 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid
 import time
+import redis
+import json
 
-from apps.common.state import QUEUE, ORDERS_DB
+from apps.common.state import ORDERS_DB  # DB can stay for now
+
+r = redis.Redis(host="redis", port=6379, decode_responses=True)
 
 app = FastAPI()
 
@@ -29,7 +33,7 @@ def create_order(order: Order):
         "created_at": time.time()
     }
 
-    # 1. write DB (source of truth)
+    # 1. DB write (source of truth)
     ORDERS_DB[order_id] = {
         "status": "queued",
         "item": order.item,
@@ -38,8 +42,8 @@ def create_order(order: Order):
         "updated_at": job["created_at"]
     }
 
-    # 2. push to queue
-    QUEUE.append(job)
+    # 2. PUSH TO REDIS (THIS IS THE QUEUE NOW)
+    r.lpush("orders", json.dumps(job))
 
     print(f"[API] queued order: {order_id}")
 
@@ -52,11 +56,3 @@ def create_order(order: Order):
 @app.get("/orders/{order_id}")
 def get_order(order_id: str):
     return ORDERS_DB.get(order_id, {"error": "not found"})
-
-
-@app.get("/debug/queue")
-def debug_queue():
-    return {
-        "queue_size": len(QUEUE),
-        "items": QUEUE
-    }
