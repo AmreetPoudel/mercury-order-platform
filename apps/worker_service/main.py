@@ -17,8 +17,17 @@ while True:
 
     # simulate work
     time.sleep(2)
+## here we are updating the DB directly, but in a real system, we would have a separate service for this so try block 
+#is just to avoid crashing the worker if the order is not found in the DB, which can happen if the API service is 
+#restarted and loses its in-memory state. In a real system, we would have a persistent database that both services can 
+#access, so this issue would not occur.
 
-    ORDERS_DB[order_id]["status"] = "completed"
+    try:
+        ORDERS_DB[order_id]["status"] = "completed"
+    except KeyError:
+        print(f"[WARN] order not found in DB: {order_id}")
     ORDERS_DB[order_id]["updated_at"] = time.time()
 
     print(f"[WORKER] completed {order_id}")
+
+
