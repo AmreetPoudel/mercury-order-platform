@@ -1,86 +1,233 @@
-# Mercury Order Platform
+# Mercury Order Platform (Async Processing System)
 
-A production-style event-driven order processing platform built on AWS using Terraform, EKS, PostgreSQL, SQS, Redis, S3, and GitHub Actions.
+## Overview
 
-## Goal
-Demonstrate production-oriented platform engineering across infrastructure as code, Kubernetes operations, CI/CD, observability, resilience, and recovery.
+This project demonstrates a **production-style asynchronous processing system** using:
 
-## High-Level Flow
-1. Client sends order request to public API endpoint.
-2. ALB routes traffic to API service running on EKS.
-3. API validates request, stores initial order record in PostgreSQL, and publishes a job to SQS.
-4. Worker service consumes the job, processes the order, updates database state, and stores generated artifacts in S3.
-5. Monitoring and logging stacks provide visibility into application and infrastructure health.
+* API service (request ingestion)
+* Redis (message queue)
+* Worker service (background processing)
+* PostgreSQL (source of truth)
 
-## Core Technologies
-- AWS VPC
-- Amazon EKS
-- Amazon RDS PostgreSQL Multi-AZ
-- Amazon SQS + DLQ
-- Amazon ElastiCache Redis
-- Amazon S3
-- Amazon ECR
-- AWS Secrets Manager
-- Terraform
-- GitHub Actions
-- Prometheus
-- Grafana
-- Loki
+The system is designed to handle **component failures without losing data**.
 
-## Architecture Principles
-- Public exposure minimized to ALB only
-- Application and data services remain private
-- Multi-AZ design for resilience
-- Asynchronous processing for decoupling and fault tolerance
-- Infrastructure fully reproducible through Terraform
-- Observability included as a first-class concern
+---
 
-## 15-Day Build Plan
-- [√] Day 1 - Define scope and lock architecture
-- [√] Day 2 - Terraform module structure
-- [ ] Day 3 - Networking and foundational AWS resources
-- [ ] Day 4 - EKS cluster provisioning
-- [ ] Day 5 - Cluster platform components
-- [ ] Day 6 - API service
-- [ ] Day 7 - Worker service
-- [ ] Day 8 - Database, secrets, and Redis
-- [ ] Day 9 - Kubernetes deployments
-- [ ] Day 10 - CI pipeline
-- [ ] Day 11 - CD pipeline and infra workflow
-- [ ] Day 12 - Observability stack
-- [ ] Day 13 - Resilience and failure drills
-- [ ] Day 14 - Backup, recovery, and security review
-- [ ] Day 15 - Documentation and interview packaging
+## Architecture
 
-## Cost and Cleanup Strategy
-This project is designed as a production-style lab, not a permanently running environment. Cost will be controlled by using small development-sized resources, limiting idle time, and destroying nonessential infrastructure after testing sessions.
+```text
+Client → API → Redis Queue → Worker → PostgreSQL
+```
 
-## Planned Components
-- API service
-- Worker service
-- Notification service
-- PostgreSQL as durable state store
-- SQS with DLQ for async processing
-- Redis for cache/idempotency
-- S3 for artifacts
-- Prometheus/Grafana/Loki for observability
+### Flow
 
-## rules 
-- use a single small dev environment
-    destroy nonessential resources when not testing
-    keep worker node count minimal
-    avoid idle infrastructure when possible
-    clean old images in ECR
-    keep test traffic limited
-    monitoring stack only as heavy as needed for demonstration
-    Cleanup strategy
+1. Client sends order request to API
+2. API:
 
-- At the end of each work session:
+   * Writes order to PostgreSQL (source of truth)
+   * Pushes job to Redis queue (`orders`)
+3. Worker:
 
-    stop and review what can be destroyed
-    keep only what is needed for next day
-    use Terraform destroy for disposable layers if required
-    document dependencies so destroy works cleanly
-    never leave orphaned load balancers, NAT, or RDS accidentally running
+   * Pulls job from Redis
+   * Processes it
+   * Updates DB status
+4. System remains functional even if worker crashes
 
-Your real enemy is not build complexity. It is silent cloud spend from laziness. (this is for my fellow learner)
+---
+
+## Key Concepts Implemented
+
+### 1. Asynchronous Processing
+
+* API does not process jobs directly
+* Jobs are delegated to worker via Redis
+* Improves scalability and decoupling
+
+---
+
+### 2. At-Least-Once Delivery Guarantee
+
+* Implemented using:
+
+  * `BRPOPLPUSH` (Redis)
+  * Separate processing queue (`orders:processing`)
+
+* Jobs are:
+
+  * Moved to processing queue before execution
+  * Only removed after successful completion
+
+---
+
+### 3. Failure Handling (Worker Crash Safe)
+
+If worker crashes during processing:
+
+* Job remains in `orders:processing`
+* Not lost
+* Can be recovered and retried
+
+---
+
+### 4. Stuck Job Recovery
+
+Implemented custom recovery mechanism:
+
+* Each job has `processing_started_at`
+* Worker checks processing queue periodically
+* If job exceeds timeout:
+
+  * It is requeued back to main queue
+
+```text
+processing → timeout → requeue → process again
+```
+
+---
+
+### 5. Idempotency Protection (Basic)
+
+Worker checks:
+
+```python
+if order.status == "completed":
+    skip
+```
+
+Prevents duplicate processing in most cases.
+
+---
+
+### 6. Separation of Concerns
+
+* API → handles requests
+* Worker → handles processing
+* Redis → queue/buffer
+* PostgreSQL → source of truth
+
+---
+
+## Tech Stack
+
+* FastAPI
+* Redis
+* PostgreSQL
+* Docker / Docker Compose
+* SQLAlchemy
+
+---
+
+## How to Run
+
+### 1. Start services
+
+```bash
+docker compose up --build
+```
+
+---
+
+### 2. Create order
+
+```bash
+curl -X POST localhost:8000/orders \
+-H "Content-Type: application/json" \
+-d '{"item": "test", "quantity": 1}'
+```
+
+---
+
+### 3. Check order status
+
+```bash
+curl localhost:8000/orders/<order_id>
+```
+
+---
+
+### 4. Inspect queues (optional)
+
+```bash
+docker exec -it <redis_container> redis-cli
+
+LRANGE orders 0 -1
+LRANGE orders:processing 0 -1
+```
+
+---
+
+## Failure Testing
+
+### Simulate worker crash
+
+```bash
+docker kill <worker_container>
+```
+
+Wait for timeout, then restart:
+
+```bash
+docker compose up
+```
+
+Expected behavior:
+
+* Stuck job is detected
+* Job is requeued
+* Worker processes it again
+
+---
+
+## Guarantees Provided
+
+* No job loss
+* System continues despite worker failure
+* Jobs are eventually processed
+
+---
+
+## Known Limitations (Intentional)
+
+This system is not fully production-grade yet.
+
+Missing:
+
+* Retry limits
+* Dead Letter Queue (DLQ)
+* Strong idempotency guarantees
+* Distributed locking
+* Observability (metrics/tracing)
+
+---
+
+## Next Improvements
+
+* Implement retry count + max retry threshold
+* Add DLQ (`orders:dlq`)
+* Add structured logging + monitoring
+* Move to Kubernetes (EKS) deployment
+* Replace Redis list with production-grade queue system (SQS / Kafka)
+
+---
+
+## Key Learning Outcomes
+
+This project demonstrates:
+
+* Designing for failure, not just success
+* Understanding queue semantics
+* Building fault-tolerant async systems
+* Handling distributed system edge cases
+
+---
+
+## Summary
+
+This is not a simple CRUD API.
+
+It is a **failure-aware, asynchronous system** that demonstrates:
+
+* Decoupled architecture
+* Crash recovery
+* Eventual consistency
+* Real-world system behavior

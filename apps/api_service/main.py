@@ -5,7 +5,8 @@ import time
 import redis
 import json
 
-from apps.common.state import ORDERS_DB  # DB can stay for now
+from apps.common.db import SessionLocal
+from apps.common.models import Order as OrderModel
 
 r = redis.Redis(host="redis", port=6379, decode_responses=True)
 
@@ -25,34 +26,48 @@ def health():
 @app.post("/orders")
 def create_order(order: Order):
     order_id = str(uuid.uuid4())
+    now = time.time()
 
+    db = SessionLocal()
+
+    # DB = source of truth
+    db_order = OrderModel(
+        order_id=order_id,
+        item=order.item,
+        quantity=order.quantity,
+        status="queued",
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(db_order)
+    db.commit()
+
+    # Job payload
     job = {
         "order_id": order_id,
-        "item": order.item,
-        "quantity": order.quantity,
-        "created_at": time.time()
+        "created_at": now,
+        "processing_started_at": None,
     }
 
-    # 1. DB write (source of truth)
-    ORDERS_DB[order_id] = {
-        "status": "queued",
-        "item": order.item,
-        "quantity": order.quantity,
-        "created_at": job["created_at"],
-        "updated_at": job["created_at"]
-    }
-
-    # 2. PUSH TO REDIS (THIS IS THE QUEUE NOW)
+    # Push to Redis queue
     r.lpush("orders", json.dumps(job))
 
     print(f"[API] queued order: {order_id}")
 
-    return {
-        "order_id": order_id,
-        "status": "queued"
-    }
+    return {"order_id": order_id, "status": "queued"}
 
 
 @app.get("/orders/{order_id}")
 def get_order(order_id: str):
-    return ORDERS_DB.get(order_id, {"error": "not found"})
+    db = SessionLocal()
+    order = db.query(OrderModel).filter_by(order_id=order_id).first()
+
+    if not order:
+        return {"error": "not found"}
+
+    return {
+        "order_id": order.order_id,
+        "status": order.status,
+        "item": order.item,
+        "quantity": order.quantity,
+    }
