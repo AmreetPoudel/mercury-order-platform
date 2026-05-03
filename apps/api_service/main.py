@@ -18,13 +18,6 @@ class Order(BaseModel):
     quantity: int
 
 
-@app.on_event("startup")
-def startup():
-    from apps.common.db import engine
-    from apps.common.models import Base
-    Base.metadata.create_all(bind=engine)
-
-
 @app.get("/healthz")
 def health():
     return {"status": "ok"}
@@ -32,27 +25,34 @@ def health():
 
 @app.post("/orders")
 def create_order(order: Order):
-    db = SessionLocal()
-
     order_id = str(uuid.uuid4())
     now = time.time()
 
-    # 1. write DB
+    db = SessionLocal()
+
+    # DB = source of truth
     db_order = OrderModel(
         order_id=order_id,
         item=order.item,
         quantity=order.quantity,
         status="queued",
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
-
     db.add(db_order)
     db.commit()
 
-    # 2. push to Redis
-    job = {"order_id": order_id}
+    # Job payload
+    job = {
+        "order_id": order_id,
+        "created_at": now,
+        "processing_started_at": None,
+    }
+
+    # Push to Redis queue
     r.lpush("orders", json.dumps(job))
+
+    print(f"[API] queued order: {order_id}")
 
     return {"order_id": order_id, "status": "queued"}
 
@@ -60,7 +60,6 @@ def create_order(order: Order):
 @app.get("/orders/{order_id}")
 def get_order(order_id: str):
     db = SessionLocal()
-
     order = db.query(OrderModel).filter_by(order_id=order_id).first()
 
     if not order:
@@ -70,5 +69,5 @@ def get_order(order_id: str):
         "order_id": order.order_id,
         "status": order.status,
         "item": order.item,
-        "quantity": order.quantity
+        "quantity": order.quantity,
     }
