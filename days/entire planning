@@ -857,30 +857,9 @@ Prometheus/Grafana/Loki for observability
 
 “I tested pod failure, queue backlog, rollback, and DB failover impact.”
 
-6. Lessons
 
-Talk about tradeoffs, not only success.
 
-That makes you sound like an engineer, not a course graduate.
 
-Brutal truth about your situation
-
-You do not need more theory addiction.
-You do not need another endless comparison between ECS and EKS.
-You do not need another “project idea” tab open.
-
-You need one finished thing.
-
-Your real risk is not lack of intelligence.
-It is fragmentation:
-
-too many ideas
-too much abstraction
-not enough shipped evidence
-
-This 15-day plan works only if you stop behaving like someone “preparing to start” and start behaving like someone building under deadline.
-
-Priority order when you get stuck
 
 If time gets tight, keep this order:
 
@@ -893,29 +872,4 @@ Observability
 Failure drills
 polish
 
-Do not sacrifice core system completion for fancy extras.
 
-Your daily rule
-
-Every day must end with:
-
-one commit
-one screenshot or note
-one thing deployed/tested
-one learning written in docs
-
-No zero days. Zero days kill momentum.
-
-Final outcome after 15 days
-
-By the end, you should have:
-
-a real GitHub repo
-architecture diagram
-infra as code
-deployed services
-CI/CD
-dashboards
-failure tests
-runbooks
-interview story
