@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+      - postgres
 
   worker:
     build:
@@ -16,8 +17,22 @@ services:
       dockerfile: Dockerfile.worker
     depends_on:
       - redis
+      - postgres
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: orders
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
