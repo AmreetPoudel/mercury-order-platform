@@ -21,7 +21,7 @@ while True:
 #is just to avoid crashing the worker if the order is not found in the DB, which can happen if the API service is 
 #restarted and loses its in-memory state. In a real system, we would have a persistent database that both services can 
 #access, so this issue would not occur.
-
+## still crashing but we are leaving it here 
     try:
         ORDERS_DB[order_id]["status"] = "completed"
     except KeyError:
