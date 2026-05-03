@@ -2,3 +2,5 @@ fastapi
 uvicorn
 pydantic
 redis
+psycopg2-binary
+sqlalchemy
