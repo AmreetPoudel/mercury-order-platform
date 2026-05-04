@@ -7,7 +7,8 @@ from apps.common.models import Order as OrderModel
 
 r = redis.Redis(host="redis", port=6379, decode_responses=True)
 
-PROCESSING_TIMEOUT = 10  # seconds
+PROCESSING_TIMEOUT = 10
+MAX_RETRIES = 3
 
 print("[WORKER] started")
 
@@ -22,7 +23,7 @@ def recover_stuck_jobs():
             age = time.time() - job["processing_started_at"]
 
             if age > PROCESSING_TIMEOUT:
-                print(f"[RECOVERY] requeueing stuck job {job['order_id']}")
+                print(f"[RECOVERY] requeue stuck job {job['order_id']}")
 
                 r.lrem("orders:processing", 1, raw)
                 job["processing_started_at"] = None
@@ -30,10 +31,10 @@ def recover_stuck_jobs():
 
 
 while True:
-    # 🔥 Step 1: recover stuck jobs first
+    # 🔁 recover stuck jobs
     recover_stuck_jobs()
 
-    # 🔥 Step 2: safely pull job
+    # 🔥 atomic move: queue → processing
     raw = r.brpoplpush("orders", "orders:processing")
     job = json.loads(raw)
 
@@ -47,7 +48,7 @@ while True:
         r.lrem("orders:processing", 1, raw)
         continue
 
-    # 🧠 idempotency check
+    # 🧠 idempotency
     if order.status == "completed":
         print(f"[SKIP] already completed: {order_id}")
         r.lrem("orders:processing", 1, raw)
@@ -67,19 +68,40 @@ while True:
         r.lrem("orders:processing", 1, raw)
         r.lpush("orders:processing", json.dumps(job))
 
-        # simulate work
+        # 🔥 simulate failure condition (you can toggle this)
+        # if job["retry_count"] < 2:
+        #     raise Exception("simulated failure")
+
         time.sleep(2)
 
-        # mark completed
+        # success
         order.status = "completed"
         order.updated_at = time.time()
         db.commit()
 
         print(f"[WORKER] completed {order_id}")
 
-        # ✅ ACK (remove from processing queue)
+        # ✅ ACK
         r.lrem("orders:processing", 1, json.dumps(job))
 
     except Exception as e:
-        print(f"[ERROR] {e}")
-        # ❌ do NOT remove → recovery will handle
+        print(f"[ERROR] {order_id} failed: {e}")
+
+        # 🔁 retry logic
+        job["retry_count"] += 1
+
+        if job["retry_count"] <= MAX_RETRIES:
+            print(f"[RETRY] {order_id} attempt {job['retry_count']}")
+
+            r.lrem("orders:processing", 1, raw)
+            job["processing_started_at"] = None
+            r.lpush("orders", json.dumps(job))
+
+        else:
+            print(f"[DLQ] {order_id} moved to dead letter queue")
+
+            r.lrem("orders:processing", 1, raw)
+            r.lpush("orders:dlq", json.dumps(job))
+
+            order.status = "failed"
+            db.commit()
