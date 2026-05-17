@@ -26,3 +26,4 @@ module "ecr" {
 module "sqs" {
   source = "../../modules/sqs"
 }
+
