@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Integer, Float
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
-
+# in models we do schema part noting else
 class Order(Base):
     __tablename__ = "orders"
 
