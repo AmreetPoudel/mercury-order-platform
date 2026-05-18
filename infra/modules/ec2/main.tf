@@ -5,6 +5,7 @@ resource "aws_instance" "ec2" {
   vpc_security_group_ids=var.vpc_security_group_ids
 
   associate_public_ip_address = true
+  key_name = "mercury-key"
 
   tags = {
     Name = "mercury-platform-ec2"
