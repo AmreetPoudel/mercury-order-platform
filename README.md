@@ -154,15 +154,5 @@ Elastic Load Balancer
 HTTPS with Nginx + Certbot
 Centralized logging
 
----
-
-# 🧠 Reality check (important)
-
-You are now at a point where:
-
-- backend code = secondary concern
-- infra correctness = primary skill
-
-That’s exactly how real DevOps/SRE roles think:
 ```text
 system reliability > code perfection
