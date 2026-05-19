@@ -3,14 +3,23 @@ load_dotenv()
 
 from fastapi import FastAPI
 from pydantic import BaseModel
+
 import uuid
 import time
 import redis
 import json
 import os
 
-from apps.common.db import SessionLocal
+from apps.common.db import (
+    SessionLocal,
+    Base,
+    engine
+)
+
 from apps.common.models import Order as OrderModel
+
+# Automatically create missing tables
+Base.metadata.create_all(bind=engine)
 
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 
@@ -35,6 +44,7 @@ def health():
 
 @app.post("/orders")
 def create_order(order: Order):
+
     order_id = str(uuid.uuid4())
     now = time.time()
 
@@ -62,14 +72,22 @@ def create_order(order: Order):
 
     print(f"[API] queued order: {order_id}")
 
-    return {"order_id": order_id, "status": "queued"}
+    return {
+        "order_id": order_id,
+        "status": "queued"
+    }
 
 
 @app.get("/orders/{order_id}")
 def get_order(order_id: str):
+
     db = SessionLocal()
 
-    order = db.query(OrderModel).filter_by(order_id=order_id).first()
+    order = (
+        db.query(OrderModel)
+        .filter_by(order_id=order_id)
+        .first()
+    )
 
     if not order:
         return {"error": "not found"}
