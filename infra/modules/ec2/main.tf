@@ -12,3 +12,12 @@ resource "aws_instance" "ec2" {
   }
 
   }
+
+
+resource "aws_eip" "mercury_eip" {
+  instance = aws_instance.ec2.id
+
+  tags = {
+    Name = "mercury-eip"
+  }
+}
