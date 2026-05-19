@@ -1,8 +1,9 @@
 import time
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = "postgresql://app:app@postgres:5432/orders"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 Base = declarative_base()
 
@@ -26,11 +27,5 @@ for i in range(15):
 
 if engine is None:
     raise Exception("FATAL: Database not reachable")
-
-# Import models AFTER Base and engine exist
-from apps.common.models import Order
-
-# Create missing tables
-Base.metadata.create_all(bind=engine)
 
 SessionLocal = sessionmaker(bind=engine)

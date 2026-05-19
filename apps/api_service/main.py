@@ -1,14 +1,24 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid
 import time
 import redis
 import json
+import os
 
 from apps.common.db import SessionLocal
 from apps.common.models import Order as OrderModel
 
-r = redis.Redis(host="redis", port=6379, decode_responses=True)
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+
+r = redis.Redis(
+    host=REDIS_HOST,
+    port=6379,
+    decode_responses=True
+)
 
 app = FastAPI()
 
@@ -30,7 +40,6 @@ def create_order(order: Order):
 
     db = SessionLocal()
 
-    # DB = source of truth
     db_order = OrderModel(
         order_id=order_id,
         item=order.item,
@@ -39,17 +48,16 @@ def create_order(order: Order):
         created_at=now,
         updated_at=now,
     )
+
     db.add(db_order)
     db.commit()
 
-    # Job payload
     job = {
         "order_id": order_id,
         "created_at": now,
         "processing_started_at": None,
     }
 
-    # Push to Redis queue
     r.lpush("orders", json.dumps(job))
 
     print(f"[API] queued order: {order_id}")
@@ -60,6 +68,7 @@ def create_order(order: Order):
 @app.get("/orders/{order_id}")
 def get_order(order_id: str):
     db = SessionLocal()
+
     order = db.query(OrderModel).filter_by(order_id=order_id).first()
 
     if not order:

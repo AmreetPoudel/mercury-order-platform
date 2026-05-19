@@ -11,4 +11,4 @@ class Order(Base):
     status = Column(String)
 
     created_at = Column(Float)
-    updated_at = Column(Float) 
+    updated_at = Column(Float)
