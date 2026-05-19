@@ -154,5 +154,5 @@ Elastic Load Balancer
 HTTPS with Nginx + Certbot
 Centralized logging
 
-```text
+
 system reliability > code perfection
