@@ -1,86 +1,168 @@
-# Mercury Order Platform
+📄 README.md (Manual Infrastructure Setup)
+# Mercury Order Platform - Infrastructure & Deployment Guide
 
-A production-style event-driven order processing platform built on AWS using Terraform, EKS, PostgreSQL, SQS, Redis, S3, and GitHub Actions.
+This guide explains how to initialize and run the system manually using Terraform + Docker Compose.
 
-## Goal
-Demonstrate production-oriented platform engineering across infrastructure as code, Kubernetes operations, CI/CD, observability, resilience, and recovery.
+---
 
-## High-Level Flow
-1. Client sends order request to public API endpoint.
-2. ALB routes traffic to API service running on EKS.
-3. API validates request, stores initial order record in PostgreSQL, and publishes a job to SQS.
-4. Worker service consumes the job, processes the order, updates database state, and stores generated artifacts in S3.
-5. Monitoring and logging stacks provide visibility into application and infrastructure health.
+# 🧱 Architecture Overview
 
-## Core Technologies
-- AWS VPC
-- Amazon EKS
-- Amazon RDS PostgreSQL Multi-AZ
-- Amazon SQS + DLQ
-- Amazon ElastiCache Redis
-- Amazon S3
-- Amazon ECR
-- AWS Secrets Manager
+The system consists of:
+
+- AWS VPC (public subnet)
+- EC2 instance (application host)
+- Security Group (HTTP, HTTPS, SSH, API ports)
+- Elastic IP (stable public IP)
+- PostgreSQL (container)
+- Redis (container)
+- FastAPI backend (containerized API)
+- Worker (optional background service)
+
+---
+
+# ⚙️ Prerequisites
+
+Install locally:
+
 - Terraform
-- GitHub Actions
-- Prometheus
-- Grafana
-- Loki
+- AWS CLI configured
+- Docker
+- Docker Compose
+- SSH key for EC2 access
 
-## Architecture Principles
-- Public exposure minimized to ALB only
-- Application and data services remain private
-- Multi-AZ design for resilience
-- Asynchronous processing for decoupling and fault tolerance
-- Infrastructure fully reproducible through Terraform
-- Observability included as a first-class concern
+---
 
-## 15-Day Build Plan
-- [√] Day 1 - Define scope and lock architecture
-- [√] Day 2 - Terraform module structure
-- [ ] Day 3 - Networking and foundational AWS resources
-- [ ] Day 4 - EKS cluster provisioning
-- [ ] Day 5 - Cluster platform components
-- [ ] Day 6 - API service
-- [ ] Day 7 - Worker service
-- [ ] Day 8 - Database, secrets, and Redis
-- [ ] Day 9 - Kubernetes deployments
-- [ ] Day 10 - CI pipeline
-- [ ] Day 11 - CD pipeline and infra workflow
-- [ ] Day 12 - Observability stack
-- [ ] Day 13 - Resilience and failure drills
-- [ ] Day 14 - Backup, recovery, and security review
-- [ ] Day 15 - Documentation and interview packaging
+# 🚀 Step 1: Infrastructure Provisioning (Terraform)
 
-## Cost and Cleanup Strategy
-This project is designed as a production-style lab, not a permanently running environment. Cost will be controlled by using small development-sized resources, limiting idle time, and destroying nonessential infrastructure after testing sessions.
+Navigate to environment:
 
-## Planned Components
-- API service
-- Worker service
-- Notification service
-- PostgreSQL as durable state store
-- SQS with DLQ for async processing
-- Redis for cache/idempotency
-- S3 for artifacts
-- Prometheus/Grafana/Loki for observability
+```bash
+cd infra/environments/dev
 
-## rules 
-- use a single small dev environment
-    destroy nonessential resources when not testing
-    keep worker node count minimal
-    avoid idle infrastructure when possible
-    clean old images in ECR
-    keep test traffic limited
-    monitoring stack only as heavy as needed for demonstration
-    Cleanup strategy
+Initialize Terraform:
 
-- At the end of each work session:
+terraform init
 
-    stop and review what can be destroyed
-    keep only what is needed for next day
-    use Terraform destroy for disposable layers if required
-    document dependencies so destroy works cleanly
-    never leave orphaned load balancers, NAT, or RDS accidentally running
+Apply infrastructure:
 
-Your real enemy is not build complexity. It is silent cloud spend from laziness. (this is for my fellow learner)
+terraform apply
+
+Confirm with:
+
+yes
+📌 Output after apply
+
+Terraform will output:
+
+EC2 Public IP (Elastic IP)
+
+Example:
+
+ec2_public_ip = "13.xx.xx.xx"
+🔐 Step 2: SSH into EC2
+ssh -i mercury-key.pem ubuntu@<EC2_PUBLIC_IP>
+🐳 Step 3: Install Docker (first time only)
+
+On EC2:
+
+sudo apt update -y
+sudo apt install docker.io -y
+sudo apt install docker-compose -y
+sudo usermod -aG docker ubuntu
+newgrp docker
+
+Verify:
+
+docker --version
+docker compose version
+📦 Step 4: Clone Project on EC2
+git clone https://github.com/<your-repo>/mercury-order-platform.git
+cd mercury-order-platform
+⚙️ Step 5: Setup Environment File
+
+Create .env on EC2:
+
+nano .env
+
+Example:
+
+DATABASE_URL=postgresql://app:app@postgres:5432/orders
+REDIS_HOST=redis
+
+Save and exit.
+
+🗄️ Step 6: Initialize Database (ONE TIME ONLY)
+
+Run:
+
+python apps/common/init_db.py
+
+This will:
+
+create tables
+initialize schema in PostgreSQL
+🚀 Step 7: Start System (Docker Compose)
+
+Run:
+
+docker compose up -d
+
+Check running containers:
+
+docker ps
+🌐 Step 8: Access Application
+
+FastAPI will be available at:
+
+http://<EC2_PUBLIC_IP>:8000/docs
+🔄 Step 9: Deployment Update Flow
+
+When new version is pushed to DockerHub:
+
+On EC2:
+
+docker compose pull
+docker compose up -d
+🔁 Step 10: Rollback Strategy
+
+To rollback:
+
+Edit docker-compose.yaml:
+
+image: aamreet/mercury-api:v1
+
+Then:
+
+docker compose up -d
+🧠 Key Operational Principles
+Infrastructure is immutable via Terraform
+Application is deployed via containers
+Images are versioned in DockerHub
+.env controls runtime configuration
+EC2 is only execution layer
+⚠️ Important Notes
+Do NOT commit .env
+Do NOT store secrets in Docker images
+Do NOT rely on latest tag in production
+Always prefer versioned images (v1, v2, git SHA)
+🧪 Health Check
+curl http://localhost:8000/healthz
+📌 Future Improvements (Optional)
+CI/CD via GitHub Actions
+Automated deployment via SSH
+Elastic Load Balancer
+HTTPS with Nginx + Certbot
+Centralized logging
+
+---
+
+# 🧠 Reality check (important)
+
+You are now at a point where:
+
+- backend code = secondary concern
+- infra correctness = primary skill
+
+That’s exactly how real DevOps/SRE roles think:
+```text
+system reliability > code perfection
