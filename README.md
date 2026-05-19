@@ -41,11 +41,11 @@ Demonstrate production-oriented platform engineering across infrastructure as co
 - [ ] Day 3 - Networking and foundational AWS resources
 - [ ] Day 4 - EKS cluster provisioning
 - [ ] Day 5 - Cluster platform components
-- [ ] Day 6 - API service
-- [ ] Day 7 - Worker service
+- [√] Day 6 - API service
+- [√] Day 7 - Worker service
 - [ ] Day 8 - Database, secrets, and Redis
 - [ ] Day 9 - Kubernetes deployments
-- [ ] Day 10 - CI pipeline
+- [√] Day 10 - CI pipeline
 - [ ] Day 11 - CD pipeline and infra workflow
 - [ ] Day 12 - Observability stack
 - [ ] Day 13 - Resilience and failure drills
