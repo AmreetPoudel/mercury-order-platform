@@ -84,3 +84,4 @@ This project is designed as a production-style lab, not a permanently running en
     never leave orphaned load balancers, NAT, or RDS accidentally running
 
 Your real enemy is not build complexity. It is silent cloud spend from laziness. (this is for my fellow learner)
+
