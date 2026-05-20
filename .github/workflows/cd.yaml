@@ -28,7 +28,7 @@ jobs:
 
           script: |
 
-            cd ${{ secrets.DEPLOY_PATH }}
+            cd /home/ubuntu/mercury-order-platform
 
             export IMAGE_TAG=${{ github.event.inputs.image_tag }}
 
