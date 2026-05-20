@@ -1,4 +1,4 @@
-```yaml
+
 name: CD
 
 on:
@@ -21,7 +21,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
 
-          source: "docker-compose.yaml"
+          source: "docker-compose.yml"
 
           target: "/home/ubuntu/mercury-order-platform"
 
@@ -35,20 +35,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
-<<<<<<< HEAD
-            cd /home/ubuntu/mercury-order-platform
-=======
-
             cd /home/ubuntu/mercury-order-platform
 
-            export IMAGE_TAG=${{ github.event.inputs.image_tag }}
->>>>>>> 320eed1e4881bf2f1179003bc399da6b80dd5f26
+            docker compose pull
 
-            docker-compose pull
-
-<<<<<<< HEAD
             docker compose up -d
 ```
-=======
-            docker-compose up -d
->>>>>>> 320eed1e4881bf2f1179003bc399da6b80dd5f26
