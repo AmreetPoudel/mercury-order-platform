@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15
+
+    container_name: mercury-postgres
+
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+
+    container_name: mercury-redis
+
+    restart: unless-stopped
+
+  api:
+    image: aamreet/mercury-api:${IMAGE_TAG:-latest}
+
+    container_name: mercury-api
+
+    env_file:
+      - .env
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      - postgres
+      - redis
+
+    restart: unless-stopped
+
+  worker:
+    image: aamreet/mercury-worker:${IMAGE_TAG:-latest}
+
+    container_name: mercury-worker
+
+    env_file:
+      - .env
+
+    depends_on:
+      - postgres
+      - redis
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
