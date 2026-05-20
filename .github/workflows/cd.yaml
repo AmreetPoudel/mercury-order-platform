@@ -32,6 +32,6 @@ jobs:
 
             export IMAGE_TAG=${{ github.event.inputs.image_tag }}
 
-            docker compose pull
+            docker-compose pull
 
             docker-compose up -d
