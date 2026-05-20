@@ -1,37 +1,43 @@
+```yaml
 name: CD
 
 on:
   workflow_dispatch:
 
-    inputs:
-
-      image_tag:
-        description: "Docker image tag"
-        required: true
-        default: "latest"
-
 jobs:
-
   deploy:
-
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Deploy to EC2
+      # Copy compose file to server
+      - name: Copy compose file
+        uses: appleboy/scp-action@v0.1.7
+
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+
+          source: "docker-compose.yaml"
+
+          target: "/home/ubuntu/mercury-order-platform"
+
+      # Deploy
+      - name: Deploy application
         uses: appleboy/ssh-action@v1.0.3
 
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
-
-            cd ${{ secrets.DEPLOY_PATH }}
-
-            export IMAGE_TAG=${{ github.event.inputs.image_tag }}
+            cd /home/ubuntu/mercury-order-platform
 
             docker compose pull
 
             docker compose up -d
+```
