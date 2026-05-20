@@ -31,7 +31,7 @@ jobs:
 
           script: |
             cd /home/ubuntu/mercury-order-platform
-            export IMAGE_TAG=${{ github.sha }}
+            export IMAGE_TAG=latest
 
             docker-compose pull
 
