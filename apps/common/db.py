@@ -1,5 +1,6 @@
 import time
 import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -19,6 +20,7 @@ for i in range(15):
         conn.close()
 
         print("[DB] connected")
+
         break
 
     except Exception as e:
