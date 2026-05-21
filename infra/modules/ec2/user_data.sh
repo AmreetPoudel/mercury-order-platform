@@ -6,7 +6,7 @@ apt update -y
 
 apt install -y \
     docker.io \
-    docker-compose \
+    docker-compose-v2 \
     git
 
 systemctl enable docker
@@ -17,3 +17,4 @@ usermod -aG docker ubuntu
 mkdir -p /home/ubuntu/mercury-order-platform
 
 chown ubuntu:ubuntu /home/ubuntu/mercury-order-platform
+
