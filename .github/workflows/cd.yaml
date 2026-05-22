@@ -33,7 +33,7 @@ jobs:
             cd /home/ubuntu/mercury-order-platform
             export IMAGE_TAG=latest
 
-            docker-compose pull
+            docker compose pull
 
-            docker-compose up -d
+            docker compose up -d
 
