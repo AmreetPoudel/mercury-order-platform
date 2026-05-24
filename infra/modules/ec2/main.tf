@@ -6,7 +6,7 @@ resource "aws_instance" "ec2" {
   iam_instance_profile = var.instance_profile_name
   associate_public_ip_address = true
   key_name = "mercury-key"
-  user_data_replace_on_change = true
+
   user_data = file("${path.module}/user_data.sh")
 
   tags = {
