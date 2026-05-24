@@ -31,6 +31,8 @@ jobs:
 
           script: |
             cd /home/ubuntu/mercury-order-platform
+            ./load-secrets.sh
+
             export IMAGE_TAG=latest
 
             docker compose pull
