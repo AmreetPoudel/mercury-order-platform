@@ -46,9 +46,9 @@ Demonstrate production-oriented platform engineering across infrastructure as co
 - [ ] Day 8 - Database, secrets, and Redis
 - [ ] Day 9 - Kubernetes deployments
 - [√] Day 10 - CI pipeline
-- [ ] Day 11 - CD pipeline and infra workflow
+- [√] Day 11 - CD pipeline and infra workflow
 - [ ] Day 12 - Observability stack
-- [ ] Day 13 - Resilience and failure drills
+- [√] Day 13 - Resilience and failure drills
 - [ ] Day 14 - Backup, recovery, and security review
 - [ ] Day 15 - Documentation and interview packaging
 
